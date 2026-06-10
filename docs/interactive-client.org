@@ -341,7 +341,23 @@ Suggested global bindings:
 #+begin_src emacs-lisp
 (global-set-key (kbd "C-c d") #'clutch-query-console)
 #+end_src
+* Connect using the visited file
+=clutch-connect-using-file= uses the current buffer filename (without
+extension) to find the profile name to connect to. E.g. visiting
+=~/work/prod-pg-ssh.sql= connects using the =prod-pg-ssh= profile in
+=clutch-connection-alist=.
 
+This is useful for keeping version controlled per-project =.sql= scratch
+files that automatically target their connection without needing a
+dedicated query console.
+
+Unlike =clutch-query-console=, the command operates on the file's own
+buffer in place and does not rename it to =*clutch: NAME*=.
+
+If no matching saved connection exists the command signals a
+=user-error=, but =clutch-mode= is already enabled at that point, so =C-c
+C-e= / =clutch-connect= is still available to pick a different
+connection, making this a useful entrypoint to =clutch-mode=.
 * Object Workflow
 
 #+begin_src
