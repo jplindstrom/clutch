@@ -912,6 +912,24 @@ ROWS defaults to a small three-row sample."
           (with-current-buffer result-name
             (should (equal clutch--result-source-table "orders"))))))))
 
+(ert-deftest clutch-test-display-select-records-source-table-without-rewrite ()
+  "Single-table SELECT with its own LIMIT/OFFSET still records the source table.
+Multi-table and derived queries stay nil even with LIMIT."
+  (let ((result-name "*clutch-test-result*")
+        (result (make-clutch-db-result
+                 :columns '((:name "id" :type-category numeric))
+                 :rows '((1)))))
+    (dolist (case '(("SELECT id FROM mail_queue_archive LIMIT 10" "mail_queue_archive")
+                    ("SELECT id FROM orders OFFSET 5" "orders")
+                    ("SELECT a.id FROM orders a JOIN users u ON a.uid = u.id LIMIT 10" nil)
+                    ("SELECT id FROM (SELECT id FROM orders) t LIMIT 10" nil)))
+      (clutch-test--with-result-buffer (result-name)
+        (pcase-let ((`(,sql ,expected) case))
+          (clutch-result--display-select
+           'fake-conn sql result 0 nil t nil (current-buffer))
+          (with-current-buffer result-name
+            (should (equal clutch--result-source-table expected))))))))
+
 (ert-deftest clutch-test-init-result-state-clears-stale-result-flags ()
   "Result initialization should not keep stale source or DML metadata."
   (with-temp-buffer

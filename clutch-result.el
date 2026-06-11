@@ -296,7 +296,8 @@ are produced by the query execution layer."
                  (clutch--server-rewritable-result-p sql visible-columns))))
          (source-table (or (plist-get result-context :source-table)
                            (and server-rewritable
-                                (plist-get row-identity-prep :table))))
+                                (plist-get row-identity-prep :table))
+                           (clutch-db-sql-source-table sql t)))
          (page (if server-pageable
                    (clutch-result--split-page-lookahead-rows
                     (clutch-db-result-rows result) page-size)
