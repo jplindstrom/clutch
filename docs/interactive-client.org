@@ -60,7 +60,7 @@ keys such as =M-TAB= inherited from Emacs.
 | =C-c C-c=     | Commit all pending changes (INSERT/UPDATE/DELETE) |
 | =C-c C-k=     | Discard pending change at point               |
 | =C-c C-p=      | Preview execution (pending batch if any; otherwise effective query) |
-| =c=            | Open copy transient menu (choose TSV / CSV / Org table / INSERT / UPDATE; toggle =-r= to refine) |
+| =c=            | Open copy transient menu (choose TSV / CSV / Org table / INSERT / UPDATE; toggle =-a= for all rows/cols, =-r= to refine) |
 | =k=            | Copy SQL, table metadata, and bounded result sample for an external agent |
 | =v=            | View cell value (JSON / XML / BLOB preview — auto-detected) |
 | =V=            | Open live value viewer (follows point; =f= freeze, =g= refresh, =q= quit) |
@@ -166,11 +166,17 @@ remains result buffer -> insert buffer.
 
 ** Visual Refine Mode (=c -r= / =C-u A=)
 
-The copy transient (=c=) offers a =-r= switch for *refine mode*.  With an
-active region, enabling =-r= before choosing a format lets you interactively
-exclude rows or columns before the copy is performed.  The mode-line at the
-bottom of the result buffer is replaced with a color-coded hint for the
-duration of the session.
+The copy transient (=c=) offers two scope switches:
+
+- =-a= (=--all=) — copy every visible row and column in the result set,
+  ignoring the current region.
+- =-r= (=--refine=) — enter *refine mode* to interactively exclude rows or
+  columns before the copy.  Requires an active region.
+
+With an active region, enabling =-r= before choosing a format lets you
+interactively exclude rows or columns before the copy is performed.  The
+mode-line at the bottom of the result buffer is replaced with a color-coded
+hint for the duration of the session.
 
 The region can be set with =C-x SPC= (rectangle mark), a normal mark
 (=C-SPC=), or mouse selection — all three are accepted.  Regardless of

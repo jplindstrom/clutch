@@ -258,7 +258,7 @@ query is still running.
 | `C-c C-c` | `clutch-result-commit` | Commit staged INSERT/UPDATE/DELETE changes |
 | `C-c C-k` | `clutch-result-discard-pending-at-point` | Discard pending change at point |
 | `C-c C-p` | `clutch-preview-execution-sql` | Preview pending batch or effective query |
-| `c` | `clutch-result-copy-dispatch` | Copy transient (TSV / CSV / Org table / INSERT / UPDATE) |
+| `c` | `clutch-result-copy-dispatch` | Copy transient (TSV / CSV / Org table / INSERT / UPDATE; `-a` for all rows/cols, `-r` to refine) |
 | `e` | `clutch-result-export` | Export all rows (CSV / INSERT / UPDATE copy/file) |
 | `v` | `clutch-result-view-value` | View current cell value |
 | `V` | `clutch-result-live-view-value` | Open the live cell viewer that follows point |

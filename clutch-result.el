@@ -1248,15 +1248,24 @@ Otherwise, copy the current cell."
      (user-error "Unsupported copy format: %s" format))))
 
 (defun clutch-result--copy-fmt (fmt)
-  "Copy in FMT, entering refine mode first if --refine switch is set."
-  (if (transient-arg-value "--refine" (transient-args 'clutch-result-copy-dispatch))
-      (progn
-        (unless (use-region-p)
-          (user-error "Set a region before using refine mode"))
-        (clutch-result--start-refine
-         (clutch-result--region-rectangle-indices)
-         (lambda (final-rect) (clutch-result-copy fmt final-rect))))
-    (clutch-result-copy fmt)))
+  "Copy in FMT, honouring --all and --refine switches from the copy transient."
+  (let ((args (transient-args 'clutch-result-copy-dispatch)))
+    (cond
+     ((transient-arg-value "--all" args)
+      (clutch-result-copy fmt
+                          (cons (cl-loop for i below
+                                         (length (or clutch--filtered-rows
+                                                     clutch--result-rows))
+                                         collect i)
+                                (clutch--visible-columns))))
+     ((transient-arg-value "--refine" args)
+      (unless (use-region-p)
+        (user-error "Set a region before using refine mode"))
+      (clutch-result--start-refine
+       (clutch-result--region-rectangle-indices)
+       (lambda (final-rect) (clutch-result-copy fmt final-rect))))
+     (t
+      (clutch-result-copy fmt)))))
 
 ;;;###autoload
 (defun clutch-result-copy-tsv ()
@@ -1290,10 +1299,12 @@ Otherwise, copy the current cell."
 
 (transient-define-prefix clutch-result-copy-dispatch ()
   "Copy result buffer data.
+Enable --all to copy every visible row and column regardless of region.
 Enable --refine to exclude rows/columns interactively before copying
 \(requires an active region set with \\<global-map>\\[set-mark-command] or mouse)."
   ["Options"
    :pad-keys t
+   ("-a" "All rows and columns" "--all")
    ("-r" "Exclude rows/cols interactively (needs region)" "--refine")]
   ["Copy as"
    :pad-keys t
