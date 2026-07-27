@@ -3958,6 +3958,22 @@ passed to `clutch--build-conn'; ACTIVATED, when non-nil, records the final
                            message))
             (should (derived-mode-p 'clutch-mode))))))))
 
+(ert-deftest clutch-test-connect-using-file-toggles-disconnect-when-connected ()
+  "Should disconnect instead of connecting when the buffer already has a live connection."
+  (let ((clutch-connection-alist '(("alpha" . (:backend mysql :database "app_a"))))
+        disconnected)
+    (with-temp-buffer
+      (setq-local buffer-file-name "/tmp/alpha.sql")
+      (setq-local clutch-connection 'live-conn)
+      (cl-letf (((symbol-function 'clutch--connection-alive-p)
+                 (lambda (_conn) t))
+                ((symbol-function 'clutch-disconnect)
+                 (lambda () (setq disconnected t)))
+                ((symbol-function 'clutch--build-conn)
+                 (lambda (_params) (ert-fail "must not connect"))))
+        (clutch-connect-using-file)
+        (should disconnected)))))
+
 ;;;; Schema and database switching
 
 (ert-deftest clutch-test-switch-schema-updates-session-and-buffer-context ()

@@ -454,23 +454,26 @@ buffer is not visiting a file."
 
 ;;;###autoload (autoload 'clutch-connect-using-file "clutch" nil t)
 (defun clutch-connect-using-file ()
-  "Enable `clutch-mode' and connect using the profile named after this file.
-The profile is looked up in `clutch-connection-alist' by the current buffer's
-file base name (extension stripped).  `clutch-mode' is enabled before any
-error, so when no matching profile exists you can still connect via
-`clutch-connect'."
+  "Toggle a connection using the profile named after this file.
+When the buffer already has a live connection, disconnect instead.  Otherwise
+enable `clutch-mode' and connect using the profile looked up in
+`clutch-connection-alist' by the current buffer's file base name (extension
+stripped).  `clutch-mode' is enabled before any error, so when no matching
+profile exists you can still connect via `clutch-connect'."
   (interactive)
-  (unless (derived-mode-p 'clutch-mode)
-    (clutch-mode))
-  (let* ((name (or (clutch--buffer-file-profile-name)
-                   (user-error "Buffer is not visiting a file")))
-         (params (or (clutch--saved-connection-params name)
-                     (user-error "No saved connection named %s" name))))
-    ;; Reuse the tested `clutch-connect' path.  Storing resolved params in the
-    ;; ad-hoc slot keeps `clutch--console-name' nil, so the file buffer is not
-    ;; renamed to *clutch: NAME*.
-    (setq-local clutch--console-ad-hoc-params params)
-    (clutch-connect)))
+  (if (clutch--connection-alive-p clutch-connection)
+      (clutch-disconnect)
+    (unless (derived-mode-p 'clutch-mode)
+      (clutch-mode))
+    (let* ((name (or (clutch--buffer-file-profile-name)
+                     (user-error "Buffer is not visiting a file")))
+           (params (or (clutch--saved-connection-params name)
+                       (user-error "No saved connection named %s" name))))
+      ;; Reuse the tested `clutch-connect' path.  Storing resolved params in the
+      ;; ad-hoc slot keeps `clutch--console-name' nil, so the file buffer is not
+      ;; renamed to *clutch: NAME*.
+      (setq-local clutch--console-ad-hoc-params params)
+      (clutch-connect))))
 
 (defconst clutch--row-identity-hidden-prefix "clutch__rid_"
   "Prefix used for hidden row identity result columns.")

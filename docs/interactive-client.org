@@ -351,6 +351,9 @@ This is useful for keeping version controlled per-project =.sql= scratch
 files that automatically target their connection without needing a
 dedicated query console.
 
+The command toggles: invoking it again while the buffer already has a
+live connection disconnects instead of reconnecting.
+
 Unlike =clutch-query-console=, the command operates on the file's own
 buffer in place and does not rename it to =*clutch: NAME*=.
 
