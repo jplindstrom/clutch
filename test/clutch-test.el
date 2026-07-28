@@ -4936,6 +4936,8 @@ DETAILS, when non-nil, is returned by `clutch--ensure-column-details'."
   "Export command should write the chosen format through the real export path."
   (dolist (case '(("csv-copy" clipboard "id,name\n1,\"a,b\"\n")
                   ("csv-file" file "id,name\n1,\"a,b\"\n")
+                  ("tsv-copy" clipboard "id\tname\n1\ta,b\n")
+                  ("tsv-file" file "id\tname\n1\ta,b\n")
                   ("insert-copy" clipboard
                    "INSERT INTO \"users\" (\"id\", \"name\") VALUES (1, 'a,b');\n")
                   ("insert-file" file
@@ -4967,6 +4969,8 @@ DETAILS, when non-nil, is returned by `clutch--ensure-column-details'."
                                (should (member choice choices))
                                choice)
                               ((string-prefix-p "CSV encoding" prompt)
+                               "utf-8")
+                              ((string-prefix-p "TSV encoding" prompt)
                                "utf-8")
                               (t
                                (ert-fail (format "Unexpected prompt: %s" prompt))))))
@@ -5002,6 +5006,17 @@ DETAILS, when non-nil, is returned by `clutch--ensure-column-details'."
       (should (string-match-p "1,\"a,b\"" csv))
       (should (string-match-p "2,\"x\"\"y\"" csv))
       (should (string-match-p "3,\"x\ry\"" csv)))))
+
+(ert-deftest clutch-test-tsv-content-escaping ()
+  "TSV content should include header and escaped values."
+  (with-temp-buffer
+    (setq-local clutch--result-columns '("id" "display\tname"))
+    (let ((tsv (clutch--export-tsv-content
+                '((1 "a\tb") (2 "x\"y") (3 "x\ry")))))
+      (should (string-match-p "^id\t\"display\tname\"\n" tsv))
+      (should (string-match-p "1\t\"a\tb\"" tsv))
+      (should (string-match-p "2\t\"x\"\"y\"" tsv))
+      (should (string-match-p "3\t\"x\ry\"" tsv)))))
 
 (ert-deftest clutch-test-insert-content-builds-full-row-sql ()
   :tags '(:smoke)
@@ -5053,14 +5068,16 @@ DETAILS, when non-nil, is returned by `clutch--ensure-column-details'."
   "Export choices should match SQL, document, and key/value result surfaces."
   (dolist (case '((document
                    ("csv-copy" "csv-file"
+                    "tsv-copy" "tsv-file"
                     "document-insert-many-copy"
                     "document-insert-many-file"))
                   (sql
                    ("csv-copy" "csv-file"
+                    "tsv-copy" "tsv-file"
                     "insert-copy" "insert-file"
                     "update-copy" "update-file"))
                   (key-value
-                   ("csv-copy" "csv-file"))))
+                   ("csv-copy" "csv-file" "tsv-copy" "tsv-file"))))
     (pcase-let ((`(,surface ,expected) case))
       (pcase surface
         ('document

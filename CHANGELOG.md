@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.4.0 - Unreleased
+
+### Added
+
+- Added `tsv-copy` and `tsv-file` result export formats alongside CSV, sharing the same
+  comma/tab/quote/CR/LF quoting rules as CSV export so exported TSV round-trips through the
+  existing delimited-text import parser.
+
 ## 0.3.0 - 2026-07-28
 
 ### Breaking Changes

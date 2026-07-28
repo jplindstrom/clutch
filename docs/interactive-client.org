@@ -58,7 +58,7 @@ Standard editing integrations still apply in =clutch-mode=: xref lookup uses =M-
 | =k=            | Copy SQL, table metadata, and bounded result sample for an external agent |
 | =v=            | Open the full cell value (JSON / XML / BLOB — auto-detected) |
 | =|=            | Pipe the current cell through a shell command |
-| =e=            | Export all rows (CSV / INSERT / UPDATE copy/file) |
+| =e=            | Export all rows (CSV / TSV / INSERT / UPDATE copy/file) |
 | =f=            | Toggle fullscreen                             |
 | =C-c ?=        | Transient menu                                |
 
@@ -472,7 +472,7 @@ Customize these through =M-x customize-group RET clutch RET=:
 - =clutch-column-displayers= controls the per-table/per-column result displayer registry.
 - =clutch-object-warmup-idle-delay-seconds= delays background object warmup after schema refresh.
 - =clutch-schema-cache-install-batch-size= controls how many schema entries are installed per idle batch.
-- =clutch-csv-export-default-coding-system= sets the default CSV encoding (UTF-8 with BOM by default for Excel compatibility).
+- =clutch-csv-export-default-coding-system= sets the default CSV/TSV file export encoding (UTF-8 with BOM by default for Excel compatibility).
 - =clutch-jdbc-fetch-size= controls JDBC cursor batch size from 1 through 10,000 rows (default 500).
 - =clutch-primary-object-types= chooses which object types =C-c C-j= treats as the primary jump set.
 - =clutch-sql-completion-case-style= controls whether SQL completion preserves, lowercases, or uppercases inserted identifiers/keywords.

@@ -67,7 +67,7 @@ fraction.  Values must be greater than zero and no greater than one."
   :group 'clutch)
 
 (defcustom clutch-csv-export-default-coding-system 'utf-8-with-signature
-  "Default coding system when exporting CSV files."
+  "Default coding system when exporting CSV or TSV files."
   :type '(choice (const :tag "UTF-8 (with BOM)" utf-8-with-signature)
                  (const :tag "UTF-8" utf-8)
                  (const :tag "GBK" gbk)
@@ -2933,6 +2933,8 @@ OP is a short operation description used in user-facing error messages."
 (defconst clutch--result-export-formats
   '(("csv-copy" :kind csv :destination clipboard)
     ("csv-file" :kind csv :destination file)
+    ("tsv-copy" :kind tsv :destination clipboard)
+    ("tsv-file" :kind tsv :destination file)
     ("insert-copy" :kind insert :action export-insert :destination clipboard)
     ("insert-file" :kind insert :action export-insert :destination file)
     ("update-copy" :kind update :action export-update :destination clipboard)
@@ -2949,7 +2951,13 @@ OP is a short operation description used in user-facing error messages."
             :default-file "export.csv"
             :copy-message "Copied %d row%s as CSV"
             :file-message "Exported %d row%s to %s (%s)"
-            :file-coding csv))
+            :file-coding "CSV"))
+    (tsv . (:content clutch--export-tsv-content
+            :file-prompt "Export TSV to file: "
+            :default-file "export.tsv"
+            :copy-message "Copied %d row%s as TSV"
+            :file-message "Exported %d row%s to %s (%s)"
+            :file-coding "TSV"))
     (insert . (:content clutch--export-insert-content
                :file-prompt "Export SQL to file: "
                :default-file "export.sql"
@@ -3067,20 +3075,34 @@ rectangle and inactive regions fall back to the current cell."
                 (clutch--message-count (length lines))
                 (if (= (length lines) 1) "" "s"))))))
 
-(defun clutch--csv-escape (val)
-  "Return CSV-escaped string for VAL."
+(defun clutch--delimited-value-escape (val sep)
+  "Return delimited-text escaped string for VAL using single-char string SEP."
   (let ((s (clutch--format-value val)))
-    (if (string-match-p "[,\"\r\n]" s)
+    (if (string-match-p (concat "[" (regexp-quote sep) "\"\r\n]") s)
         (format "\"%s\"" (replace-regexp-in-string "\"" "\"\"" s))
       s)))
 
-(defun clutch--csv-lines-for-rows (rows col-indices)
-  "Return CSV lines for ROWS using COL-INDICES."
+(defun clutch--delimited-lines-for-rows (rows col-indices sep)
+  "Return lines for ROWS using COL-INDICES, delimited by SEP."
   (let ((col-names (clutch--column-names-for-indices col-indices)))
-    (cons (mapconcat #'clutch--csv-escape col-names ",")
+    (cons (mapconcat (lambda (v) (clutch--delimited-value-escape v sep))
+                      col-names sep)
           (cl-loop for row in rows
                    for vals = (mapcar (lambda (i) (nth i row)) col-indices)
-                   collect (mapconcat #'clutch--csv-escape vals ",")))))
+                   collect (mapconcat (lambda (v) (clutch--delimited-value-escape v sep))
+                                      vals sep)))))
+
+(defun clutch--csv-escape (val)
+  "Return CSV-escaped string for VAL."
+  (clutch--delimited-value-escape val ","))
+
+(defun clutch--csv-lines-for-rows (rows col-indices)
+  "Return CSV lines for ROWS using COL-INDICES."
+  (clutch--delimited-lines-for-rows rows col-indices ","))
+
+(defun clutch--tsv-lines-for-rows (rows col-indices)
+  "Return TSV lines for ROWS using COL-INDICES."
+  (clutch--delimited-lines-for-rows rows col-indices "\t"))
 
 (defun clutch--org-table-lines-for-rows (rows col-indices)
   "Return aligned Org table lines for ROWS using COL-INDICES."
@@ -3141,6 +3163,8 @@ rectangle and inactive regions fall back to the current cell."
 Prompts for format:
 - csv-copy: all rows to clipboard as CSV text
 - csv-file: all rows to CSV file
+- tsv-copy: all rows to clipboard as TSV text
+- tsv-file: all rows to TSV file
 - insert-copy: all rows to clipboard as INSERT statements
 - insert-file: all rows to a .sql file as INSERT statements
 - update-copy: all rows to clipboard as UPDATE statements
@@ -3156,16 +3180,24 @@ Prompts for format:
       (user-error "Unsupported export format: %s" choice))
     (clutch--export-result format)))
 
-(defun clutch--export-csv-content (rows)
-  "Return CSV export text for ROWS using current visible result columns."
-  (let* ((lines (clutch--csv-lines-for-rows rows (clutch--visible-columns)))
+(defun clutch--export-delimited-content (rows sep)
+  "Return export text for ROWS using visible result columns, joined by SEP."
+  (let* ((lines (clutch--delimited-lines-for-rows rows (clutch--visible-columns) sep))
          (body (mapconcat #'identity (cdr lines) "\n")))
     (if (string-empty-p body)
         (concat (car lines) "\n")
       (concat (car lines) "\n" body "\n"))))
 
-(defun clutch--csv-export-coding-choices ()
-  "Return alist of CSV export coding labels to coding systems."
+(defun clutch--export-csv-content (rows)
+  "Return CSV export text for ROWS using current visible result columns."
+  (clutch--export-delimited-content rows ","))
+
+(defun clutch--export-tsv-content (rows)
+  "Return TSV export text for ROWS using current visible result columns."
+  (clutch--export-delimited-content rows "\t"))
+
+(defun clutch--delimited-export-coding-choices ()
+  "Return alist of delimited-text export coding labels to coding systems."
   (let ((pairs '(("utf-8-bom" . utf-8-with-signature)
                  ("utf-8" . utf-8)
                  ("gbk" . gbk)
@@ -3174,15 +3206,15 @@ Prompts for format:
              when (coding-system-p coding)
              collect (cons label coding))))
 
-(defun clutch--read-csv-export-coding-system ()
-  "Read coding system for CSV file export."
-  (let* ((choices (clutch--csv-export-coding-choices))
+(defun clutch--read-delimited-export-coding-system (format-label)
+  "Read coding system for delimited-text file export, prompting with FORMAT-LABEL."
+  (let* ((choices (clutch--delimited-export-coding-choices))
          (default (if (coding-system-p clutch-csv-export-default-coding-system)
                       clutch-csv-export-default-coding-system
                     'utf-8-with-signature))
          (default-label (car (rassoc default choices)))
          (label (completing-read
-                 (format "CSV encoding (default %s): "
+                 (format "%s encoding (default %s): " format-label
                          (or default-label (symbol-name default)))
                  (mapcar #'car choices) nil t nil nil default-label)))
     (or (cdr (assoc label choices)) default)))
@@ -3255,8 +3287,9 @@ Prompts for format:
                    (user-error "Unsupported export kind: %s" kind)))
          (rows (clutch-result--collect-all-export-rows))
          (coding (when (and (eq destination 'file)
-                            (eq (plist-get spec :file-coding) 'csv))
-                   (clutch--read-csv-export-coding-system)))
+                            (plist-get spec :file-coding))
+                   (clutch--read-delimited-export-coding-system
+                    (plist-get spec :file-coding))))
          (text (funcall (plist-get spec :content) rows))
          (row-count (length rows))
          (row-suffix (if (= (length rows) 1) "" "s")))
