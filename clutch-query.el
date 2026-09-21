@@ -462,21 +462,38 @@ buffer is not visiting a file."
   (when buffer-file-name
     (file-name-base buffer-file-name)))
 
+(defconst clutch--profile-declaration-regexp
+  "^[ \t]*--+[ \t]*clutch:[ \t]*\\([^ \t\n]+\\)"
+  "Regexp matching an in-buffer `-- clutch: NAME' connection declaration.")
+
+(defun clutch--buffer-declared-profile-name ()
+  "Return the saved-connection profile name declared in the current buffer.
+This is the name in the first `-- clutch: NAME' comment line, or nil when the
+buffer has no such line."
+  (save-excursion
+    (save-restriction
+      (widen)
+      (goto-char (point-min))
+      (when (re-search-forward clutch--profile-declaration-regexp nil t)
+        (match-string-no-properties 1)))))
+
 ;;;###autoload (autoload 'clutch-connect-using-file "clutch" nil t)
 (defun clutch-connect-using-file ()
   "Toggle a connection using the profile named after this file.
 When the buffer already has a live connection, disconnect instead.  Otherwise
-enable `clutch-mode' and connect using the profile looked up in
-`clutch-connection-alist' by the current buffer's file base name (extension
-stripped).  `clutch-mode' is enabled before any error, so when no matching
-profile exists you can still connect via `clutch-connect'."
+enable `clutch-mode' and connect using the profile named by the first
+`-- clutch: NAME' comment line in the buffer, falling back to the buffer's
+file base name (extension stripped) when there is no such line, looked up in
+`clutch-connection-alist'.  `clutch-mode' is enabled before any error, so when
+no matching profile exists you can still connect via `clutch-connect'."
   (interactive)
   (if (clutch--connection-alive-p clutch-connection)
       (clutch-disconnect)
     (unless (derived-mode-p 'clutch-mode)
       (clutch-mode))
-    (let* ((name (or (clutch--buffer-file-profile-name)
-                     (user-error "Buffer is not visiting a file")))
+    (let* ((name (or (clutch--buffer-declared-profile-name)
+                     (clutch--buffer-file-profile-name)
+                     (user-error "No clutch: comment line and buffer is not visiting a file")))
            (params (or (clutch--saved-connection-params name)
                        (user-error "No saved connection named %s" name))))
       ;; Reuse the tested `clutch-connect' path.  Storing resolved params in the

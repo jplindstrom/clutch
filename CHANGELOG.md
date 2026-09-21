@@ -2,7 +2,7 @@
 
 ### 2026-07-06
 
-- Added `clutch-connect-using-file`, which enables `clutch-mode` and connects using the `clutch-connection-alist` profile named after the visited file's base name. Invoking it again while the buffer already has a live connection disconnects instead of reconnecting.
+- Added `clutch-connect-using-file`, which enables `clutch-mode` and connects using the `clutch-connection-alist` profile named after the visited file's base name, or after a `-- clutch: NAME` comment line in the buffer when one is present (which takes precedence). Invoking it again while the buffer already has a live connection disconnects instead of reconnecting.
 
 # Changelog
 
