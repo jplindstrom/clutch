@@ -3906,6 +3906,138 @@ them in place."
       (when (and new (clutch-db-live-p new)) (clutch-db-disconnect new))
       (delete-file db-file))))
 
+;;;; Connect using the visited file
+
+(ert-deftest clutch-test-buffer-file-profile-name-is-the-file-base-name ()
+  "Profile name should be the visited file's base name, or nil without a file."
+  (dolist (case '(("/tmp/alpha.sql" "alpha")
+                  ("/srv/db/prod-pg-ssh.sql" "prod-pg-ssh")
+                  ("/tmp/nested.name.mysql" "nested.name")
+                  ("/tmp/no-extension" "no-extension")
+                  (nil nil)))
+    (pcase-let ((`(,file ,expected) case))
+      (with-temp-buffer
+        (setq-local buffer-file-name file)
+        (should (equal (clutch--buffer-file-profile-name) expected))))))
+
+(ert-deftest clutch-test-connect-using-file-uses-profile-matching-the-file-name ()
+  "Connecting from a file should use the saved connection named after it."
+  (dolist (case '(("/tmp/alpha.sql" mysql "app_a" "alpha")
+                  ("/srv/beta.mysql" pg "app_b" "beta")))
+    (pcase-let ((`(,file ,backend ,database ,name) case))
+      (let ((clutch-connection-alist
+             '(("alpha" . (:backend mysql :database "app_a"))
+               ("beta" . (:backend pg :database "app_b"))))
+            built)
+        (with-temp-buffer
+          (setq-local buffer-file-name file)
+          (clutch-test--with-connect-build-stubs (built 'mysql 'new-conn)
+            (clutch-connect-using-file)
+            (should (derived-mode-p 'clutch-mode))
+            (should (equal built (list :backend backend :database database
+                                       :pass-entry name)))))))))
+
+(ert-deftest clutch-test-connect-using-file-does-not-rename-the-file-buffer ()
+  "Connecting from a file should not turn the buffer into a named console."
+  (let ((clutch-connection-alist '(("alpha" . (:backend mysql :database "app_a"))))
+        original-name)
+    (with-temp-buffer
+      (setq-local buffer-file-name "/tmp/alpha.sql")
+      (setq original-name (buffer-name))
+      ;; Leave `clutch--update-console-buffer-name' unstubbed so a regression
+      ;; that sets `clutch--console-name' would actually rename the buffer.
+      (cl-letf (((symbol-function 'clutch--build-conn)
+                 (lambda (_params) 'new-conn))
+                ((symbol-function 'clutch--effective-sql-product)
+                 (lambda (_params) 'mysql))
+                ((symbol-function 'clutch--connection-alive-p)
+                 (lambda (conn) (eq conn 'new-conn)))
+                ((symbol-function 'clutch--clear-reconnect-metadata-caches)
+                 #'ignore)
+                ((symbol-function 'clutch--connection-key)
+                 (lambda (_conn) "test-conn"))
+                ((symbol-function 'clutch--activate-current-buffer-connection)
+                 (lambda (conn params product)
+                   (setq-local clutch-connection conn
+                               clutch--connection-params params
+                               clutch--conn-sql-product product)))
+                ((symbol-function 'message) #'ignore))
+        (clutch-connect-using-file)
+        (should-not clutch--console-name)
+        (should (equal clutch--connection-params
+                       '(:backend mysql :database "app_a" :pass-entry "alpha")))
+        (should (equal (buffer-name) original-name))))))
+
+(ert-deftest clutch-test-connect-using-file-enables-mode-before-reporting-problems ()
+  "Failures should still leave `clutch-mode' on so `clutch-connect' is reachable."
+  (dolist (case '(("/tmp/unknown.sql" "No saved connection named unknown")
+                  (nil "No clutch: comment line and buffer is not visiting a file")))
+    (pcase-let ((`(,file ,message) case))
+      (let ((clutch-connection-alist
+             '(("alpha" . (:backend mysql :database "app_a")))))
+        (with-temp-buffer
+          (setq-local buffer-file-name file)
+          (cl-letf (((symbol-function 'clutch--build-conn)
+                     (lambda (_params) (ert-fail "must not connect"))))
+            (should (equal (cadr (should-error (clutch-connect-using-file)
+                                              :type 'user-error))
+                           message))
+            (should (derived-mode-p 'clutch-mode))))))))
+
+(ert-deftest clutch-test-connect-using-file-toggles-disconnect-when-connected ()
+  "Should disconnect instead of connecting when the buffer already has a live connection."
+  (let ((clutch-connection-alist '(("alpha" . (:backend mysql :database "app_a"))))
+        disconnected)
+    (with-temp-buffer
+      (setq-local buffer-file-name "/tmp/alpha.sql")
+      (setq-local clutch-connection 'live-conn)
+      (cl-letf (((symbol-function 'clutch--connection-alive-p)
+                 (lambda (_conn) t))
+                ((symbol-function 'clutch-disconnect)
+                 (lambda () (setq disconnected t)))
+                ((symbol-function 'clutch--build-conn)
+                 (lambda (_params) (ert-fail "must not connect"))))
+        (clutch-connect-using-file)
+        (should disconnected)))))
+
+(ert-deftest clutch-test-buffer-declared-profile-name-reads-clutch-comment ()
+  "Should find the first `-- clutch: NAME' comment line, or nil without one."
+  (dolist (case '(("-- clutch: alpha\nselect 1;" "alpha")
+                  ("  ---- clutch:   alpha  \n" "alpha")
+                  ("-- clutch: alpha -- staging backup\n" "alpha")
+                  ("-- clutch: alpha\n-- clutch: beta\n" "alpha")
+                  ("select 1;\n-- clutch: alpha\n" "alpha")
+                  ("select 1;\n" nil)
+                  ("-- this mentions clutch: alpha in prose\n" nil)
+                  ("" nil)))
+    (pcase-let ((`(,text ,expected) case))
+      (with-temp-buffer
+        (insert text)
+        (should (equal (clutch--buffer-declared-profile-name) expected))))))
+
+(ert-deftest clutch-test-connect-using-file-prefers-declared-profile-over-file-name ()
+  "An in-buffer declaration should win over the visited file's base name."
+  (let ((clutch-connection-alist
+         '(("alpha" . (:backend mysql :database "app_a"))
+           ("beta" . (:backend pg :database "app_b"))))
+        built)
+    (with-temp-buffer
+      (setq-local buffer-file-name "/tmp/alpha.sql")
+      (insert "-- clutch: beta\n")
+      (clutch-test--with-connect-build-stubs (built 'pg 'new-conn)
+        (clutch-connect-using-file)
+        (should (equal built '(:backend pg :database "app_b" :pass-entry "beta")))))))
+
+(ert-deftest clutch-test-connect-using-file-uses-declared-profile-without-a-visited-file ()
+  "A declaration should work in a buffer that is not visiting a file."
+  (let ((clutch-connection-alist '(("alpha" . (:backend mysql :database "app_a"))))
+        built)
+    (with-temp-buffer
+      (insert "-- clutch: alpha\n")
+      (clutch-test--with-connect-build-stubs (built 'mysql 'new-conn)
+        (clutch-connect-using-file)
+        (should (equal built '(:backend mysql :database "app_a" :pass-entry "alpha")))))))
+
 ;;;; Schema and database switching
 
 (ert-deftest clutch-test-switch-schema-updates-session-and-buffer-context ()
