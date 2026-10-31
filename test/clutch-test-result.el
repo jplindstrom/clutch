@@ -1192,6 +1192,20 @@ Without a region, choosing a format with refinement is refused."
                                   (error-message-string err))))
         (should-not clutch-refine-mode)))))
 
+(ert-deftest clutch-test-copy-all-ignores-the-selection ()
+  "The All switch copies every row and visible column, with or without header."
+  (clutch-test--with-result-state
+      (:columns '("id" "name" "score")
+       :column-defs '((:name "id") (:name "name") (:name "score" :hidden t))
+       :rows '((1 "alice" 10) (2 "bob" 20))
+       :render t)
+    (let (kill-ring kill-ring-yank-pointer)
+      (clutch-test--select-cells '(0 0) '(0 0))
+      (clutch-test--type-keys "c -a t")
+      (should (equal (current-kill 0) "id\tname\n1\talice\n2\tbob"))
+      (clutch-test--type-keys "c -a -h t")
+      (should (equal (current-kill 0) "1\talice\n2\tbob")))))
+
 (ert-deftest clutch-test-copy-org-table-escapes-table-sensitive-content ()
   "Org table copy should keep one logical table row per result row."
   (clutch-test--with-result-state
