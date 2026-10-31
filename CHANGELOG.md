@@ -1,3 +1,9 @@
+# Personal Changelog
+
+### 2026-10-31
+
+- Added `-a` (All rows and columns) to the copy menu: copies every displayed row and visible column, ignoring the region. Works with `-r` and `-h`.
+
 # Changelog
 
 ## 0.7.1 - 2026-10-31

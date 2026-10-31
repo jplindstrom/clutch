@@ -91,6 +91,8 @@ Without an explicit SQL row limit, paged query export and all-row result export 
 | =f=            | Toggle fullscreen                             |
 | =C-c ?=        | Transient menu                                |
 
+The copy transient also has =-a= (=All rows and columns=): it copies every displayed row and visible column of the loaded page, ignoring the region. Combined with =-r= it starts refinement from all cells without needing a region.
+
 The =e= exporter uses the same Transient interaction model as =c=. Copy identifies the current-cell or selected-cell scope; Export identifies all result rows and explicitly notes when a local filter is ignored. Export does not adopt the selection or the =/= filter. Header defaults to Yes for CSV and TSV, while Destination defaults to Clipboard and can be switched to File before choosing a format. For pageable queries the exporter retrieves every page rather than stopping at the displayed row limit; SQL =WHERE= and explicit =LIMIT=, =OFFSET=, =TOP= and =FETCH= clauses remain part of the query. Ordinary column, table and alias names such as =top= or =fetch= do not disable pagination. CSV and TSV files prompt for an encoding and default to UTF-8 with BOM for spreadsheet compatibility.
 
 By default, CSV/TSV copy and export write SQL NULL as an unquoted empty field, an empty string as =""=, and literal =NULL= text as =NULL=. This keeps the three values distinct in the output; importers must recognize this convention rather than treating every empty field as empty text. It is independent of encoding and applies to both query and result export. Oracle already treats empty character strings as SQL NULL, so they use the NULL representation there.

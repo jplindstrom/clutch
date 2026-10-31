@@ -1905,20 +1905,27 @@ header from tabular formats."
    (if (oref obj value) 'file 'clipboard)
    '((clipboard . "Clipboard") (file . "File"))))
 
+(defun clutch-result--all-cells-rect ()
+  "Return every displayed row and visible column as a rectangle."
+  (cons (number-sequence 0 (1- (length (clutch--result-display-rows))))
+        (clutch--visible-columns)))
+
 (defun clutch-result--copy-fmt (fmt)
-  "Copy in FMT using the Header and Refine Transient options."
+  "Copy in FMT using the All, Header and Refine Transient options."
   (let* ((args (transient-args 'clutch-result-copy-dispatch))
+         (rect (and (transient-arg-value "--all" args)
+                    (clutch-result--all-cells-rect)))
          (refine (transient-arg-value "--refine" args))
          (omit-header (transient-arg-value "--no-header" args)))
     (if refine
       (progn
-        (unless (use-region-p)
+        (unless (or rect (use-region-p))
           (user-error "Set a region before using refine mode"))
         (clutch-result--start-refine
-         (clutch-result--region-rectangle-indices)
+         (or rect (clutch-result--region-rectangle-indices))
          (lambda (final-rect)
            (clutch-result-copy fmt final-rect omit-header))))
-      (clutch-result-copy fmt nil omit-header))))
+      (clutch-result-copy fmt rect omit-header))))
 
 ;;;###autoload
 (defun clutch-result-copy-tsv ()
@@ -1977,15 +1984,24 @@ header from tabular formats."
 
 (defun clutch-result--copy-scope-description ()
   "Describe the data scope for the current copy menu."
-  (if (use-region-p) "Copy selected cells" "Copy current cell"))
+  (cond
+   ((transient-arg-value
+     "--all" (transient-args 'clutch-result-copy-dispatch))
+    "Copy all rows and columns")
+   ((use-region-p) "Copy selected cells")
+   (t "Copy current cell")))
 
 (transient-define-prefix clutch-result-copy-dispatch ()
   "Copy result buffer data.
+Enable --all to copy every row and visible column regardless of region.
 Enable --refine to exclude rows/columns interactively before copying
 \(requires an active region set with \\<global-map>\\[set-mark-command] or mouse).
 Header controls tabular copy formats and defaults to Yes."
   [:description clutch-result--copy-scope-description
    :pad-keys t
+   ("-a" "All rows and columns" "--all"
+    :class clutch--transient-yes-no-switch
+    :format " %k %d %v")
    ("-r" "Refine selection" "--refine"
     :class clutch--transient-yes-no-switch
     :format " %k %d %v")
