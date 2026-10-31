@@ -10,6 +10,12 @@
 
 # Changelog
 
+## 0.7.2 - Unreleased
+
+### Changed
+
+- `M-w` in a result or record buffer copies the cell at point as displayed, with JSON pretty printed, and `C-u M-w` copies the value as the database returned it. A NULL cell copies an empty string. With an active region, `M-w` copies the region as before.
+
 ## 0.7.1 - 2026-10-31
 
 ### Added
