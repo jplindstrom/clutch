@@ -89,6 +89,7 @@
 (require 'clutch-test-schema)
 (require 'clutch-test-edit)
 (require 'clutch-test-result)
+(require 'clutch-test-result-kill)
 (require 'clutch-test-query)
 (require 'clutch-document)
 
